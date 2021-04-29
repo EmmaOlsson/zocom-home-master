@@ -71,7 +71,7 @@
       "on" : false,
       "stream": { 
         "file" : "testfile.mp3",
-        "name" : "testfile"
+        "name" : "Playing from Emmas iPhone"
       }
     }
   ],
