@@ -225,14 +225,26 @@ app.put('/lock/:id/:on', (req, res) => {
         }
     }
     else {
-        device.assign(
-            {
-                locked: true,
-                state: 'open',
-                secret: '19d493b3-9a2e-495e-9dc2-44b7836dae9a'
-            }).value()
+            // Kollar om query för code === 1234, i så fall öppnas dörren och värdena ändras för angivna keys.
+            if (req.query.code === '1234') {
+                device.assign(
+                    {
+                        locked: true,
+                        state: 'open',
+                        secret: '19d493b3-9a2e-495e-9dc2-44b7836dae9a'
+                    }).value()
+    
+            update()
+            res.send(`${devValue.name} is unlocked and ${devValue.state}`)
 
-        update()
+            // Om parameter för query saknas eller code är felskriven, uppmanas användaren fylla i detta.
+            } else {
+                device.assign( { locked: false }).value()
+                
+                update()
+
+                res.send(`Please enter a valid code to unlock the ${devValue.name}`)
+            }
 
         res.send(`${devValue.name} is ${devValue.state}`)
     } 
@@ -265,10 +277,10 @@ app.put('/camera/:id/:on', (req, res) => {
         device.assign(
             {
                 on: true,
+                secret: 'a5e337f5-a391-4fda-894e-d14aba719c9e',
                 state: 'filming',
-                secret: 'a5e337f5-a391-4fda-894e-d14aba719c9e'
             }).value()
-
+            
         update()
 
         res.send(`${devValue.type} at ${devValue.name} is ${devValue.state}`)
