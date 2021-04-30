@@ -1,53 +1,91 @@
 const { app } = require('./core');
-const { db, update } = require('./db');
+const { db, sse, update } = require('./db');
 
-
+// Hämtar devices från db.json i mappen ./db
 let devices = db.get('devices')
+
 
 // AIR CONDITION
 // IDs: AC1
-app.get('/AC/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
+// Inställningar tillgängliga via querys: temperature
+
+app.put('/AC/:id/:on', (req, res) => {
+
+    // Skapar en device-variabel där objektets id i devices stämmer överens med samma req.params.id som användaren skriver i url:en
+    let device = devices.find(device => device.id === req.params.id)
+
+    // Skapar en variabel för device.value()
+    let devValue = device.value()
+
+    // Följande kodstycke körs om användare skriver in något annat än 'on' för req.params.id (/:id) i url:en 
+    // Detta innebär att device:n stängs av om användaren skriver 'off' eller råkar skriva fel
     if (req.params.on !== 'on') {
+
+        // Assignar nya värden till key:s som innebär att device:n stängs av
         device.assign(
             {
                 on: false,
-                state: 'off',
+                state: 'off.',
             }).value()
+
+        // Kör update-funktionen från ./db/index.js som returnerar ett promise
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} är av`)
+
+        // Om användaren har skrivit in 'off' som /:id-parameter skickas följande response
+        if (req.params.on === 'off') {
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}`)
+
+            // Om användaren har skrivit in något annat än on eller off som /:id-parameter skickas följande response som uppmanar användaren att ange antingen 'on' eller 'off'
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function (on/off) for ${devValue.id} in ${devValue.name}`)
         }
     }
-    else if (req.params.on === 'on') {
+
+    // När användaren skrivit 'on' som /:id-parameter körs följande kodstycke
+    else {
+
+        // Assignar nya värden till key:s som innebär att device:n stängs av
         device.assign(
             {
-                on : true,
-                state : 'on',
+                on: true,
+                state: 'on',
             }).value()
-            update()
-        if(JSON.stringify(req.query) == '{}'){
-            res.send(`${device.temperature} hej`)
+
+        // Kör update-funktionen från ./db/index.js som returnerar ett promise
+        update()
+
+        // Om användaren inte har skrivit in några querys (alltså att req.query == '{}' är tom) skickas följande response som informerar användaren status för devicen
+        if (JSON.stringify(req.query) == '{}') {
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}. The temperature is ${devValue.temperature}`)
+
+            // Om användaren har skrivit in en parameter assignas nya värden till key som innebär att device:n (i detta fall) ändrar temperaturen
         } else {
             device.assign(
                 {
-                    temperature : req.query.temperature
+                    temperature: req.query.temperature
                 }).value()
-                update()
-            res.send(`Temperature is ${device.temperature}`)
+            
+            // Innan update-funktionen körs if-statementet om query-parametern är undefined, i så fall uppmanas användaren skriva in en giltig inställning för device:n
+            if(device.value().temperature === undefined) {
+                res.send(`Please enter a valid setting for ${devValue.id} - try temperature`)
+
+            // Om temperature (alltså värdet är inte undefined) skrivs in som query så körs följande kodstycke och temperaturen ändras och status för device:n skrivs ut.
+            } else {
+            update()
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}. The temperature is ${devValue.temperature}`)
+            }
         } 
-    } else {
-        res.send('Please enter a valid function - on or off')
     }
 })
 
 // BLINDS
 // IDs: BLI1
-// Up / Down
-app.get('/blinds/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
+app.put('/blinds/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
     if (req.params.on !== 'on') {
         device.assign(
             {
@@ -55,208 +93,226 @@ app.get('/blinds/:id/:on', (req, res) => {
                 state: 'up',
             }).value()
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} is up`)
+
+        if (req.params.on === 'off') {
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}`)
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function (on/off) for ${devValue.id} in ${devValue.name}`)
         }
-    } else if (req.params.on === 'on') {
+
+    } else {
         device.assign(
             {
-                on : true,
-                state : 'down',
+                on: true,
+                state: 'down',
             }).value()
-            update()
-/* ************* */
-            console.log('undefined?', typeof(device))
-            res.send(`${device.name} is down`)
-    } else {
-        res.send('Please enter a valid function - on or off')
-    }
+
+        update()
+
+        res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}`)
+    } 
 })
 
 // LIGHTS
 // IDs: LIG1, LIG2, LIG3
-app.get('/lights/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
+// Inställningar tillgängliga via querys: temperature
+
+app.put('/lights/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
     if (req.params.on !== 'on') {
         device.assign(
             {
                 on: false,
                 state: 'off',
             }).value()
+
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} är av`)
+
+        if (req.params.on === 'off') {
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}`)
+
         } else {
-            res.send(`Please enter a valid function for ${device.name}, on or off`)
+            res.send(`Please enter a valid function (on/off) for ${devValue.id} in ${devValue.name}`)
         }
-    }
-    else if (req.params.on === 'on') {
+    } 
+
+    else {
         device.assign(
             {
-                on : true,
-                state : 'on',
+                on: true,
+                state: 'on',
             }).value()
-            update()
-        if(JSON.stringify(req.query) == '{}'){
-            console.log('req.query', req.query)
-            res.send(`${device.name} is ${device.state}`)
-        } else if (req.query !== '{}'){
+
+        update()
+
+        if (JSON.stringify(req.query) == '{}') {
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}. The brightness is ${devValue.brightness*100}%`)
+
+        } else {
             device.assign(
                 {
-                    brightness : req.query.brightness
+                    brightness: req.query.brightness
                 }).value()
-                update()
-            res.send('req queeery')
+            
+            if(device.value().brightness === undefined) {
+                res.send(`Please enter a valid setting for ${devValue.id} - try brightness and a value from 0 to 1`)
+
+            } else {
+            update()
+            res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}. The brightness is ${devValue.brightness*100}%`)
+            }
         } 
-    } else {
-        res.send('Please enter a valid function - on or off')
     }
 })
 
 // Vacuum
 // IDs: VAC1
-app.get('/vacuum/:id/:state', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
-    if (req.params.on !== 'on' || 'charge') {
+app.put('/vacuum/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
+    if (req.params.on !== 'on') {
         device.assign(
             {
                 on: false,
                 state: 'off',
             }).value()
         update()
-        if(req.params.state === 'off'){
-            res.send(`${device.name} är av`)
+        if (req.params.on === 'off') {
+            res.send(`${devValue.name} is ${devValue.state}`)
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function (on/off) for ${devValue.name}`)
         }
-    }
-    else if (req.params.state === 'on') {
-        device.assign(
-            {
-                on : true,
-                state : 'cleaning',
-            }).value()
-            update()
-        res.send(`${device.name} is ${device.state}/cleaning`)
-    } else if (req.params.state === 'charging') {
-        device.assign(
-            {
-                on : true,
-                state : 'charging',
-            }).value()
-            update()
-        res.send(`${device.name} is /charging`)
     } else {
-        res.send('Please enter a valid function - on or off')
-    }
+        device.assign(
+            {
+                on: true,
+                state: 'cleaning',
+            }).value()
+        update()
+        res.send(`${devValue.name} is ${devValue.state}`)
+    } 
 })
 
 // Lock
 // IDs: LOC1
-app.get('/lock/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
-    if (req.params.on !== 'on') {
+app.put('/lock/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
+    if (req.params.on !== 'open') {
         device.assign(
             {
                 locked: false,
                 state: 'locked',
             }).value()
+
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} is locked`)
+
+        if (req.params.on === 'lock') {
+            res.send(`${devValue.name} is ${devValue.state}`)
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function for ${devValue.name} - open or lock`)
         }
     }
-    else if (req.params.on === 'on') {
+    else {
         device.assign(
             {
                 locked: true,
-                state : 'open',
+                state: 'open',
                 secret: '19d493b3-9a2e-495e-9dc2-44b7836dae9a'
             }).value()
-            update()
-        res.send(`${device.name} is open`)
-    } else {
-        res.send('Please enter a valid function - on or off')
-    }
+
+        update()
+
+        res.send(`${devValue.name} is ${devValue.state}`)
+    } 
 })
 
 // Camera
 // IDs: CAM1
-app.get('/camera/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
+app.put('/camera/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
     if (req.params.on !== 'on') {
         device.assign(
             {
                 on: false,
                 state: 'off',
             }).value()
+
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} är av`)
+
+        if (req.params.on === 'off') {
+            res.send(`${devValue.type} at ${devValue.name} is ${devValue.state}`)
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function for ${devValue.type} at ${devValue.name} - on or off`)
         }
     }
-    else if (req.params.on === 'on') {
+    else {
         device.assign(
             {
-                on : true,
-                state : 'filming',
-                secret : 'a5e337f5-a391-4fda-894e-d14aba719c9e'
+                on: true,
+                state: 'filming',
+                secret: 'a5e337f5-a391-4fda-894e-d14aba719c9e'
             }).value()
-            update()
-        res.send(`${device.name} is filming`)
-    } else {
-        res.send('Please enter a valid function - on or off')
-    }
+
+        update()
+
+        res.send(`${devValue.type} at ${devValue.name} is ${devValue.state}`)
+    } 
 })
 
 // Speaker
 // IDs: SPE1
-app.get('/speaker/:id/:on', (req, res) => {
-    let device = devices.filter(device => device.id === req.params.id)
+app.put('/speaker/:id/:on', (req, res) => {
+
+    let device = devices.find(device => device.id === req.params.id)
+
+    let devValue = device.value()
+
     if (req.params.on !== 'on') {
         device.assign(
             {
                 on: false,
                 state: 'off',
             }).value()
+
         update()
-        if(req.params.on === 'off'){
-            res.send(`${device.name} är av`)
+
+        if (req.params.on === 'off') {
+            res.send(`${devValue.type} in ${devValue.name} is ${devValue.state}`)
         } else {
-            res.send(`Please enter a valid function for ${device.name}`)
+            res.send(`Please enter a valid function for ${devValue.type} in ${devValue.name}`)
         }
     }
-    else if (req.params.on === 'on') {
+    else {
         device.assign(
             {
-                on : true,
-                state : 'playing music',
+                on: true,
+                state: 'playing music',
             }).value()
-            update()
-        if(JSON.stringify(req.query) == '{}'){
-            console.log('req.query', req.query)
-            res.send(`${device.name} is ${device.state}`)
-        } else {
-            device.assign(
-                {
-                    brightness : req.query.brightness
-                }).value()
-                update()
-            res.send('req queeery')
-        } 
-    } else {
-        res.send('Please enter a valid function - on or off')
-    }
+
+        update()
+
+        res.send(`${devValue.type} in ${devValue.name} is ${devValue.state}`)
+    } 
 })
 
+// Skapar en server på port 3000 och console.log:ar för att se när den körs
 app.listen(3000, () => {
     console.log('API for smart home 1.1 up n running.')
 })
 
-/* CODE YOUR API HERE */
+
