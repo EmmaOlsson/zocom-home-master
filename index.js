@@ -148,8 +148,9 @@ app.put('/lights/:id/:on', (req, res) => {
             }).value()
 
         update()
-
+        
         if (JSON.stringify(req.query) == '{}') {
+            // Omvandlar brightness till procent-enhet
             res.send(`${devValue.type} (${devValue.id}) in ${devValue.name} is ${devValue.state}. The brightness is ${devValue.brightness*100}%`)
 
         } else {
